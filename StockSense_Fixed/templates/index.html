@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StockSense · Smart Retail</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% if page == 'dashboard' %}<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>{% endif %}
+</head>
+<body class="{% if page == 'dashboard' %}app-body{% else %}auth-body{% endif %}">
+{% if page == 'login' or page == 'register' %}
+  <main class="auth-shell">
+    <div class="auth-art"><div class="brand-mark">📦</div><p class="eyebrow">SMART RETAIL · SIMPLE DECISIONS</p><h1>Every shelf has a story.</h1><p>Track stock, catch expiry risks and plan smarter purchases.</p><div class="cartoon">🛒 🥫 🍪 🍎</div></div>
+    <section class="auth card">
+      <div class="brand">Stock<span>Sense</span></div>
+      <p class="eyebrow">SMALL-RETAIL CONTROL CENTRE</p>
+      <h2>{% if page == 'register' %}Create your account{% else %}Welcome back{% endif %}</h2>
+      <p class="muted">Your shop's stock, sales and supplier insights in one place.</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
+      <form method="post">
+        <label>Email or phone number<input name="identifier" required placeholder="you@example.com or phone number"></label>
+        <label>Password (minimum 8 characters)<input name="password" type="password" minlength="8" required placeholder="Enter password"></label>
+        <button class="btn primary">{% if page == 'register' %}Create account →{% else %}Log in →{% endif %}</button>
+      </form>
+      {% if page == 'register' %}<p>Already registered? <a href="{{ url_for('login') }}">Log in</a></p>{% else %}<p>New to StockSense? <a href="{{ url_for('register') }}">Create account</a></p>{% endif %}
+    </section>
+  </main>
+{% else %}
+  <aside class="sidebar">
+    <a class="brand sidebar-brand" href="#top"><span class="brand-icon">✳</span> Stock<span>Sense</span></a>
+    <div class="side-caption">WORKSPACE</div>
+    <nav>
+      <a class="nav-link active" href="#top"><span>◈</span> Dashboard</a>
+      <a class="nav-link" href="#shop"><span>🏪</span> Shop details</a>
+      <a class="nav-link" href="#scanner"><span>▦</span> Phone scanner</a>
+      <a class="nav-link" href="#inventory"><span>▤</span> Inventory & batches</a>
+      <a class="nav-link" href="#sales"><span>↗</span> Sales & billing</a>
+      <a class="nav-link" href="#expiry"><span>◷</span> Expiry monitor</a>
+      <a class="nav-link" href="#analytics"><span>▥</span> Sales analytics</a>
+      <a class="nav-link" href="#suppliers"><span>✦</span> Supplier scorecard</a>
+      <a class="nav-link" href="#reorder"><span>⌁</span> Future stock plan</a>
+    </nav>
+    <div class="sidebar-bottom"><div class="mini-avatar">SS</div><div><strong>{{ session.get('identifier','Shop owner') }}</strong><small>Shop owner</small></div><a href="{{ url_for('logout') }}" title="Log out">↗</a></div>
+  </aside>
+  <main class="workspace" id="top">
+    <header class="topbar"><div><span class="eyebrow">RETAIL INTELLIGENCE / OVERVIEW</span><h1>{{ user.shop_name or 'Your shop dashboard' }}</h1><p class="muted">A clearer view of what you have, what is moving and what needs attention.</p></div><div class="top-actions"><span class="today-pill">● Live local data</span><a class="logout-link" href="{{ url_for('logout') }}">Log out ↗</a></div></header>
+    {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
+    <section class="stats">
+      <article class="stat-card violet"><div class="stat-icon">▤</div><span>Total stock units</span><strong>{{ products|sum(attribute='quantity') }}</strong><small>Across {{ products|length }} stock entries</small></article>
+      <article class="stat-card mint"><div class="stat-icon">↗</div><span>Units sold</span><strong>{{ sales_count }}</strong><small>Recorded sales history</small></article>
+      <article class="stat-card amber"><div class="stat-icon">◷</div><span>Expiring in 3 days</span><strong>{{ expiring|length }}</strong><small>Needs attention soon</small></article>
+      <article class="stat-card rose"><div class="stat-icon">!</div><span>Expired batches</span><strong>{{ expired_count }}</strong><small>Blocked from new sales</small></article>
+    </section>
+    <section class="news-banner"><div class="news-copy"><span class="eyebrow">STOCKSENSE QUICK TIP</span><h2>Small alerts. Smarter shelves.</h2><p>Products expiring within the next 3 days are listed below. Add each new delivery as a separate batch to keep its expiry date accurate.</p></div><div class="cartoon-news" aria-label="Cartoon shopping basket">🧑‍🌾<br><span>🛒🥦🍎</span><small>Fresh stock, fresh start!</small></div></section>
+    <section class="content-grid">
+      <article class="panel" id="shop"><div class="section-heading"><div><span class="eyebrow">PERSONALISE</span><h2>Shop details</h2></div><span class="emoji-tag">🏪</span></div><form method="post" action="{{ url_for('update_shop') }}" class="inline-form"><label>Shop name<input name="shop_name" value="{{ user.shop_name }}" placeholder="e.g. Rishi Mini Mart" required></label><button class="btn primary">Save shop name</button></form></article>
+      <article class="panel alert-panel" id="expiry"><div class="section-heading"><div><span class="eyebrow">3-DAY WARNING WINDOW</span><h2>Expiry notifications</h2></div><span class="emoji-tag">🔔</span></div>
+      {% if expiring %}<div class="alert-list">{% for p in expiring %}<div class="alert-row"><span class="alert-dot"></span><div class="grow"><strong>{{ p.name }}{% if p.batch_number %} · {{ p.batch_number }}{% endif %}</strong><small>{{ p.quantity }} unit(s) · expires {{ p.expiry_date }}</small></div><span class="status warning">{% if p.expiry_date == today %}Today{% else %}Soon{% endif %}</span></div>{% endfor %}</div>
+      {% else %}<p class="empty-state">🎉 No batches are due to expire in the next 3 days.</p>{% endif %}</article>
+    </section>
+    <section class="panel" id="scanner"><div class="section-heading"><div><span class="eyebrow">SCAN · LOOK UP · ADD STOCK</span><h2>Phone barcode scanner</h2><p class="muted">Use a phone camera, upload a barcode photo, or type the barcode manually.</p></div><span class="emoji-tag">📱</span></div>
+      <div class="scanner-tools"><div class="scan-box"><video id="cameraVideo" playsinline muted></video><div class="scan-placeholder" id="scanPlaceholder">▦<strong>Ready to scan</strong><small>Camera permission is requested only when you press Start camera.</small></div><div class="scan-actions"><button type="button" id="startCamera" class="btn primary">Start camera</button><button type="button" id="stopCamera" class="btn ghost">Stop</button></div></div>
+      <div class="scan-lookup"><label>Barcode number<input id="barcodeLookup" placeholder="Scan or enter barcode"></label><div class="two-buttons"><button type="button" id="lookupBarcode" class="btn secondary">Find product</button><button type="button" id="useBarcode" class="btn ghost">Use in stock form ↓</button></div><div id="scanResult" class="scan-result">Scan a barcode to check existing batches.</div>
+      <form method="post" action="{{ url_for('barcode_image') }}" enctype="multipart/form-data" class="upload-form"><label>Upload barcode photo<input id="barcodeImage" type="file" name="barcode_image" accept="image/png,image/jpeg,image/webp" required></label><div class="two-buttons"><button type="button" id="readImage" class="btn secondary">Read barcode from photo</button><button type="submit" class="btn ghost">Upload image</button></div><small>Barcode detection from a photo requires a browser supporting BarcodeDetector. Manual entry remains available.</small></form></div></div>
+      <div class="section-heading form-title"><div><span class="eyebrow">NEW BATCH / NEW PRODUCT</span><h2>Add stock manually</h2></div><span class="batch-chip">Stock 1 · Stock 2 · Stock 3…</span></div>
+      <p class="muted">Add the same product again for a new delivery. Each entry keeps its own quantity, batch and expiry date.</p>
+      <form method="post" action="{{ url_for('add_product') }}" class="form-grid">
+        <label>Product name<input id="productName" name="name" required placeholder="e.g. Milk 500 ml"></label>
+        <label>Barcode<input id="productBarcode" name="barcode" placeholder="Barcode number"></label>
+        <label>Quantity received<input name="quantity" type="number" min="0" value="1" required></label>
+        <label>Expiry date<input name="expiry_date" type="date"></label>
+        <label>Batch / stock label<input name="batch_number" placeholder="Stock 2 or batch code"></label>
+        <label>Category<input name="category" placeholder="Dairy, snacks, etc."></label>
+        <label>Purchase rate per unit (₹)<input name="unit_cost" type="number" min="0" step="0.01" value="0" required></label>
+        <label>Selling price per unit (₹)<input name="selling_price" type="number" min="0" step="0.01" value="0" required></label>
+        <label>Supplier name<input name="supplier_name" placeholder="Supplier / distributor"></label>
+        <label>Supplier purchase rate (₹)<input name="supplier_price" type="number" min="0" step="0.01" value="0"></label>
+        <label>Expected units sold per day<input name="daily_sales" type="number" min="0" step="0.1" value="0" required></label>
+        <label>Supplier lead time (days)<input name="lead_days" type="number" min="0" value="3" required></label>
+        <label>Safety stock<input name="safety_stock" type="number" min="0" value="0" required></label>
+        <button class="btn primary wide">＋ Save new stock batch</button>
+      </form>
+    </section>
+    <section class="panel" id="inventory"><div class="section-heading"><div><span class="eyebrow">ON-HAND STOCK</span><h2>Inventory & batch tracking</h2><p class="muted">Each row is a stock entry, so one product can have different expiry dates.</p></div><span class="emoji-tag">📦</span></div>
+      {% if products %}<div class="table-wrap"><table><thead><tr><th>Product / barcode</th><th>Batch</th><th>Quantity</th><th>Purchase rate</th><th>Supplier</th><th>Expiry status</th><th>Expiry date</th></tr></thead><tbody>{% for p in products %}<tr><td><strong>{{ p.name }}</strong><small class="table-sub">{{ p.barcode or 'No barcode' }}</small></td><td>{{ p.batch_number or 'Stock ' ~ p.id }}</td><td><strong>{{ p.quantity }}</strong></td><td>₹{{ '%.2f'|format(p.unit_cost) }}</td><td>{{ p.supplier_name or '—' }}</td><td><span class="status {% if expiry_state(p.expiry_date)=='Expired' %}danger{% elif expiry_state(p.expiry_date)=='Expiring soon' %}warning{% else %}okay{% endif %}">{{ expiry_state(p.expiry_date) }}</span></td><td>{{ p.expiry_date or '—' }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-state">Your shelves are waiting. Add your first product batch above.</p>{% endif %}
+    </section>
+    <section class="panel" id="sales"><div class="section-heading"><div><span class="eyebrow">POINT OF SALE</span><h2>Record a sale</h2><p class="muted">Select a specific batch. Expired batches and overselling are blocked.</p></div><span class="emoji-tag">🧾</span></div>
+      {% if products %}<form method="post" action="{{ url_for('record_sale') }}" class="inline-form"><label>Product / batch<select name="product_id" required>{% for p in products %}<option value="{{ p.id }}" {% if expiry_state(p.expiry_date)=='Expired' or p.quantity<=0 %}disabled{% endif %}>{{ p.name }} · {{ p.batch_number or ('Stock ' ~ p.id) }} — {{ p.quantity }} units{% if p.expiry_date %} · exp {{ p.expiry_date }}{% endif %}{% if expiry_state(p.expiry_date)=='Expired' %} · EXPIRED{% endif %}</option>{% endfor %}</select></label><label>Quantity sold<input name="quantity" type="number" min="1" value="1" required></label><button class="btn primary">Complete sale</button></form>{% else %}<p class="empty-state">Add a product before recording a sale.</p>{% endif %}
+    </section>
+    <section class="panel" id="analytics"><div class="section-heading"><div><span class="eyebrow">WHAT MOVES FAST?</span><h2>Best-selling products</h2><p class="muted">Ranked by units sold. Purchase value is quantity sold × recorded purchase rate.</p></div><span class="emoji-tag">📈</span></div>
+      <div class="chart-tabs"><button type="button" class="tab active" data-chart="weekly">Weekly</button><button type="button" class="tab" data-chart="monthly">Monthly</button><button type="button" class="tab" data-chart="yearly">Yearly</button></div>
+      <div class="chart-wrap"><canvas id="salesChart" aria-label="Best selling products chart"></canvas></div><div id="chartSummary" class="chart-summary">Weekly sales</div>
+      <div class="analytics-grid"><div><h3>Weekly leaders</h3>{% set leaders=weekly %}{% include 'leaders.html' %}</div><div><h3>Monthly leaders</h3>{% set leaders=monthly %}{% include 'leaders.html' %}</div><div><h3>Yearly leaders</h3>{% set leaders=yearly %}{% include 'leaders.html' %}</div></div>
+    </section>
+    <section class="content-grid">
+      <article class="panel" id="suppliers"><div class="section-heading"><div><span class="eyebrow">SMART SUPPLIER SCORECARD</span><h2>Compare suppliers</h2></div><span class="emoji-tag">🤝</span></div><p class="muted">Record typical delivery time, purchase price, delays and product issues. Recommendations balance cost and reliability.</p>
+      <form method="post" action="{{ url_for('add_supplier') }}" class="form-grid compact">
+        <label>Supplier name<input name="name" required placeholder="Supplier name"></label><label>Average delivery days<input name="avg_delivery_days" type="number" min="0" step="0.5" value="2" required></label>
+        <label>Purchase price (₹)<input name="purchase_price" type="number" min="0" step="0.01" value="0" required></label><label>Delayed deliveries<input name="delayed_deliveries" type="number" min="0" value="0" required></label>
+        <label>Product issues recorded<input name="product_issues" type="number" min="0" value="0" required></label><label>Notes<input name="notes" placeholder="Reliability, quality, etc."></label>
+        <button class="btn primary wide">Save supplier scorecard</button>
+      </form>
+      {% if supplier_recommendation %}<div class="supplier-recommendation"><strong>✨ Recommended supplier: {{ supplier_recommendation.name }}</strong><p>Best combined score from recorded purchase price, average delivery time, delayed deliveries and product issues. Lower price alone does not determine this recommendation.</p></div>{% endif %}
+      {% if suppliers %}<div class="supplier-list">{% for s in suppliers %}<div class="supplier-row"><div class="supplier-icon">✦</div><div class="grow"><strong>{{ s.name }}</strong><small>{{ s.avg_delivery_days }} day delivery · {{ s.delayed_deliveries }} delays · {{ s.product_issues }} issues</small><small>{{ s.notes }}</small></div><div class="supplier-score"><b>{% if s.delayed_deliveries + s.product_issues == 0 %}Reliable{% else %}Review{% endif %}</b><small>₹{{ '%.2f'|format(s.purchase_price) }}</small></div></div>{% endfor %}</div>{% else %}<p class="empty-state">Add supplier records to compare reliability and price.</p>{% endif %}</article>
+      <article class="panel" id="reorder"><div class="section-heading"><div><span class="eyebrow">DEMAND + LEAD TIME</span><h2>Future stock plan</h2></div><span class="emoji-tag">🔮</span></div><p class="muted">Baseline forecast: daily demand × supplier lead time + safety stock − current usable stock. This is explainable planning, not a trained AI model.</p>
+      {% if recommendations %}<div class="reorder-list">{% for r in recommendations %}<div class="reorder-row"><div class="grow"><strong>{{ r.name }}</strong><small>{{ r.stock }} usable units · target {{ r.target }} · supplier {{ r.supplier or 'not recorded' }}</small></div><div class="order-qty"><b>+{{ r.quantity }}</b><small>₹{{ '%.2f'|format(r.cost) }}</small></div></div>{% endfor %}</div>{% else %}<p class="empty-state">Current stock meets the calculated target, or add daily demand and lead-time details.</p>{% endif %}</article>
+    </section>
+    <footer>StockSense · Existing login and stock/sales data retained · Local development prototype</footer>
+  </main>
+  <script id="sales-data" type="application/json">{{ {'weekly':weekly|map(attribute='name')|list, 'weekly_qty':weekly|map(attribute='qty')|list, 'weekly_value':weekly|map(attribute='purchase_value')|list, 'monthly':monthly|map(attribute='name')|list, 'monthly_qty':monthly|map(attribute='qty')|list, 'monthly_value':monthly|map(attribute='purchase_value')|list, 'yearly':yearly|map(attribute='name')|list, 'yearly_qty':yearly|map(attribute='qty')|list, 'yearly_value':yearly|map(attribute='purchase_value')|list}|tojson }}</script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endif %}
+</body></html>

@@ -1,0 +1,1 @@
+{% if leaders %}<ol class="leader-list">{% for item in leaders %}<li><span>{{ item.name }}</span><b>{{ item.qty }} units</b><small>₹{{ '%.2f'|format(item.purchase_value or 0) }} purchase value</small></li>{% endfor %}</ol>{% else %}<p class="muted">No sales recorded in this period yet.</p>{% endif %}
